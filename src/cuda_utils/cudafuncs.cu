@@ -278,9 +278,13 @@ __global__ void copyMapsKernel(int rows, int cols, const float * vmap_src, const
         //vertexes
         float3 vsrc, vdst = make_float3 (__int_as_float(0x7fffffff), __int_as_float(0x7fffffff), __int_as_float(0x7fffffff));
 
-        vsrc.x = vmap_src[y * cols * 4 + (x * 4) + 0];
-        vsrc.y = vmap_src[y * cols * 4 + (x * 4) + 1];
-        vsrc.z = vmap_src[y * cols * 4 + (x * 4) + 2];
+//        vsrc.x = vmap_src[y * cols * 4 + (x * 4) + 0];
+//        vsrc.y = vmap_src[y * cols * 4 + (x * 4) + 1];
+//        vsrc.z = vmap_src[y * cols * 4 + (x * 4) + 2];
+        vsrc.x = vmap_src[y * cols * 3 + (x * 3) + 0];
+        vsrc.y = vmap_src[y * cols * 3 + (x * 3) + 1];
+        vsrc.z = vmap_src[y * cols * 3 + (x * 3) + 2];
+
 
         if(!(vsrc.z == 0))
         {
@@ -294,9 +298,12 @@ __global__ void copyMapsKernel(int rows, int cols, const float * vmap_src, const
         //normals
         float3 nsrc, ndst = make_float3 (__int_as_float(0x7fffffff), __int_as_float(0x7fffffff), __int_as_float(0x7fffffff));
 
-        nsrc.x = nmap_src[y * cols * 4 + (x * 4) + 0];
-        nsrc.y = nmap_src[y * cols * 4 + (x * 4) + 1];
-        nsrc.z = nmap_src[y * cols * 4 + (x * 4) + 2];
+//        nsrc.x = nmap_src[y * cols * 4 + (x * 4) + 0];
+//        nsrc.y = nmap_src[y * cols * 4 + (x * 4) + 1];
+//        nsrc.z = nmap_src[y * cols * 4 + (x * 4) + 2];
+        nsrc.x = nmap_src[y * cols * 3 + (x * 3) + 0];
+        nsrc.y = nmap_src[y * cols * 3 + (x * 3) + 1];
+        nsrc.z = nmap_src[y * cols * 3 + (x * 3) + 2];
 
         if(!(vsrc.z == 0))
         {
@@ -523,7 +530,7 @@ void pyrDownUcharGauss(const DeviceArray2D<unsigned char>& src, DeviceArray2D<un
     cudaFree(gauss_cuda);
 };
 
-__global__ void verticesToDepthKernel(const float * vmap_src, PtrStepSz<float> dst, float cutOff)
+__global__ void verticesToDepthKernel(PtrStepSz<float> vmap, PtrStepSz<float> dst, float cutOff)
 {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -531,17 +538,18 @@ __global__ void verticesToDepthKernel(const float * vmap_src, PtrStepSz<float> d
     if (x >= dst.cols || y >= dst.rows)
         return;
 
-    float z = vmap_src[y * dst.cols * 4 + (x * 4) + 2];
+//    float z = vmap[y * dst.cols * 3 + (x * 3) + 2];
+    float z = vmap.ptr(y + 2 * dst.rows)[x];
 
     dst.ptr(y)[x] = z > cutOff || z <= 0 ? __int_as_float(0x7fffffff)/*CUDART_NAN_F*/ : z;
 }
 
-void verticesToDepth(DeviceArray<float>& vmap_src, DeviceArray2D<float> & dst, float cutOff)
+void verticesToDepth(DeviceArray2D<float>& vmap, DeviceArray2D<float>& dmap, float cutOff)
 {
     dim3 block (32, 8);
-    dim3 grid (getGridDim (dst.cols (), block.x), getGridDim (dst.rows (), block.y));
+    dim3 grid (getGridDim (dmap.cols (), block.x), getGridDim (dmap.rows (), block.y));
 
-    verticesToDepthKernel<<<grid, block>>>(vmap_src, dst, cutOff);
+    verticesToDepthKernel<<<grid, block>>>(vmap, dmap, cutOff);
     cudaSafeCall ( cudaGetLastError () );
 };
 

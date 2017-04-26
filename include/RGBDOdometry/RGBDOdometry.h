@@ -40,15 +40,17 @@ class RGBDOdometry
 
         virtual ~RGBDOdometry();
 
-        void initICP(GPUTexture * filteredDepth, const float depthCutoff);
+        void initICP(unsigned short * depth, const float depthCutoff);
 
-        void initICP(GPUTexture * predictedVertices, GPUTexture * predictedNormals, const float depthCutoff);
+        void initICP(float * vertices, float * normals);
 
-        void initICPModel(GPUTexture * predictedVertices, GPUTexture * predictedNormals, const float depthCutoff, const Eigen::Matrix4f & modelPose);
+		void initICPModel(unsigned short * depth, const float depthCutoff, const Eigen::Matrix4f & modelPose = Eigen::Matrix4f::Identity());
 
-        void initRGB(GPUTexture * rgb);
+        void initICPModel(float * vertices, float * normals, const Eigen::Matrix4f & modelPose = Eigen::Matrix4f::Identity());
 
-        void initRGBModel(GPUTexture * rgb);
+        void initRGB(unsigned char * rgb);
+
+        void initRGBModel(unsigned char * rgb);
 
         void initFirstRGB(GPUTexture * rgb);
 
@@ -73,14 +75,16 @@ class RGBDOdometry
         Eigen::Matrix<double, 6, 1> lastb;
 
     private:
-        void populateRGBDData(GPUTexture * rgb,
-                              DeviceArray2D<float> * destDepths,
-                              DeviceArray2D<unsigned char> * destImages);
+//        void populateRGBDData(GPUTexture * rgb,
+//                              DeviceArray2D<float> * destDepths,
+//                              DeviceArray2D<unsigned char> * destImages);
 
         std::vector<DeviceArray2D<unsigned short> > depth_tmp;
 
         DeviceArray<float> vmaps_tmp;
         DeviceArray<float> nmaps_tmp;
+
+		DeviceArray<unsigned char> rgb_tmp;
 
         std::vector<DeviceArray2D<float> > vmaps_g_prev_;
         std::vector<DeviceArray2D<float> > nmaps_g_prev_;

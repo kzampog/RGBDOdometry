@@ -154,8 +154,8 @@ void resizeNMap(const DeviceArray2D<float>& input,
 void imageBGRToIntensity(cudaArray * cuArr,
                          DeviceArray2D<unsigned char> & dst);
 
-void verticesToDepth(DeviceArray<float>& vmap_src,
-                     DeviceArray2D<float> & dst,
+void verticesToDepth(DeviceArray2D<float>& vmap,
+                     DeviceArray2D<float>& dmap,
                      float cutOff);
 
 void projectToPointCloud(const DeviceArray2D<float> & depth,

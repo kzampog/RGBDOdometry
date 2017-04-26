@@ -101,8 +101,12 @@ RGBDOdometry::RGBDOdometry(int width,
         nmaps_curr_[i].create (pyr_rows*3, pyr_cols);
     }
 
-    vmaps_tmp.create(height * 4 * width);
-    nmaps_tmp.create(height * 4 * width);
+//    vmaps_tmp.create(height * 4 * width);
+//    nmaps_tmp.create(height * 4 * width);
+	vmaps_tmp.create(height * 3 * width);
+	nmaps_tmp.create(height * 3 * width);
+
+	rgb_tmp.create(height * 3 * width);
 
     minimumGradientMagnitudes.resize(NUM_PYRS);
     minimumGradientMagnitudes[0] = 5;
@@ -115,17 +119,9 @@ RGBDOdometry::~RGBDOdometry()
 
 }
 
-void RGBDOdometry::initICP(GPUTexture * filteredDepth, const float depthCutoff)
+void RGBDOdometry::initICP(unsigned short * depth, const float depthCutoff)
 {
-    cudaArray * textPtr;
-
-    cudaGraphicsMapResources(1, &filteredDepth->cudaRes);
-
-    cudaGraphicsSubResourceGetMappedArray(&textPtr, filteredDepth->cudaRes, 0, 0);
-
-    cudaMemcpy2DFromArray(depth_tmp[0].ptr(0), depth_tmp[0].step(), textPtr, 0, 0, depth_tmp[0].colsBytes(), depth_tmp[0].rows(), cudaMemcpyDeviceToDevice);
-
-    cudaGraphicsUnmapResources(1, &filteredDepth->cudaRes);
+	depth_tmp[0].upload(depth, sizeof(unsigned short) * width, height, width);
 
     for(int i = 1; i < NUM_PYRS; ++i)
     {
@@ -141,19 +137,10 @@ void RGBDOdometry::initICP(GPUTexture * filteredDepth, const float depthCutoff)
     cudaDeviceSynchronize();
 }
 
-void RGBDOdometry::initICP(GPUTexture * predictedVertices, GPUTexture * predictedNormals, const float depthCutoff)
+void RGBDOdometry::initICP(float * vertices, float * normals)
 {
-    cudaArray * textPtr;
-
-    cudaGraphicsMapResources(1, &predictedVertices->cudaRes);
-    cudaGraphicsSubResourceGetMappedArray(&textPtr, predictedVertices->cudaRes, 0, 0);
-    cudaMemcpyFromArray(vmaps_tmp.ptr(), textPtr, 0, 0, vmaps_tmp.sizeBytes(), cudaMemcpyDeviceToDevice);
-    cudaGraphicsUnmapResources(1, &predictedVertices->cudaRes);
-
-    cudaGraphicsMapResources(1, &predictedNormals->cudaRes);
-    cudaGraphicsSubResourceGetMappedArray(&textPtr, predictedNormals->cudaRes, 0, 0);
-    cudaMemcpyFromArray(nmaps_tmp.ptr(), textPtr, 0, 0, nmaps_tmp.sizeBytes(), cudaMemcpyDeviceToDevice);
-    cudaGraphicsUnmapResources(1, &predictedNormals->cudaRes);
+    vmaps_tmp.upload(vertices, height * width * 3);
+	nmaps_tmp.upload(normals, height * width * 3);
 
     copyMaps(vmaps_tmp, nmaps_tmp, vmaps_curr_[0], nmaps_curr_[0]);
 
@@ -166,22 +153,39 @@ void RGBDOdometry::initICP(GPUTexture * predictedVertices, GPUTexture * predicte
     cudaDeviceSynchronize();
 }
 
-void RGBDOdometry::initICPModel(GPUTexture * predictedVertices,
-                                GPUTexture * predictedNormals,
-                                const float depthCutoff,
-                                const Eigen::Matrix4f & modelPose)
+void RGBDOdometry::initICPModel(unsigned short * depth, const float depthCutoff, const Eigen::Matrix4f & modelPose)
 {
-    cudaArray * textPtr;
+    depth_tmp[0].upload(depth, sizeof(unsigned short) * width, height, width);
 
-    cudaGraphicsMapResources(1, &predictedVertices->cudaRes);
-    cudaGraphicsSubResourceGetMappedArray(&textPtr, predictedVertices->cudaRes, 0, 0);
-    cudaMemcpyFromArray(vmaps_tmp.ptr(), textPtr, 0, 0, vmaps_tmp.sizeBytes(), cudaMemcpyDeviceToDevice);
-    cudaGraphicsUnmapResources(1, &predictedVertices->cudaRes);
+    for(int i = 1; i < NUM_PYRS; ++i)
+    {
+        pyrDown(depth_tmp[i - 1], depth_tmp[i]);
+    }
 
-    cudaGraphicsMapResources(1, &predictedNormals->cudaRes);
-    cudaGraphicsSubResourceGetMappedArray(&textPtr, predictedNormals->cudaRes, 0, 0);
-    cudaMemcpyFromArray(nmaps_tmp.ptr(), textPtr, 0, 0, nmaps_tmp.sizeBytes(), cudaMemcpyDeviceToDevice);
-    cudaGraphicsUnmapResources(1, &predictedNormals->cudaRes);
+    for(int i = 0; i < NUM_PYRS; ++i)
+    {
+        createVMap(intr(i), depth_tmp[i], vmaps_g_prev_[i], depthCutoff);
+        createNMap(vmaps_g_prev_[i], nmaps_g_prev_[i]);
+    }
+
+    Eigen::Matrix<float, 3, 3, Eigen::RowMajor> Rcam = modelPose.topLeftCorner(3, 3);
+    Eigen::Vector3f tcam = modelPose.topRightCorner(3, 1);
+
+    mat33 device_Rcam = Rcam;
+    float3 device_tcam = *reinterpret_cast<float3*>(tcam.data());
+
+    for(int i = 0; i < NUM_PYRS; ++i)
+    {
+        tranformMaps(vmaps_g_prev_[i], nmaps_g_prev_[i], device_Rcam, device_tcam, vmaps_g_prev_[i], nmaps_g_prev_[i]);
+    }
+
+    cudaDeviceSynchronize();
+}
+
+void RGBDOdometry::initICPModel(float * vertices, float * normals, const Eigen::Matrix4f & modelPose)
+{
+    vmaps_tmp.upload(vertices, height * width * 3);
+    nmaps_tmp.upload(normals, height * width * 3);
 
     copyMaps(vmaps_tmp, nmaps_tmp, vmaps_g_prev_[0], nmaps_g_prev_[0]);
 
@@ -205,45 +209,97 @@ void RGBDOdometry::initICPModel(GPUTexture * predictedVertices,
     cudaDeviceSynchronize();
 }
 
-void RGBDOdometry::populateRGBDData(GPUTexture * rgb,
-                                    DeviceArray2D<float> * destDepths,
-                                    DeviceArray2D<unsigned char> * destImages)
-{
-    verticesToDepth(vmaps_tmp, destDepths[0], maxDepthRGB);
+//void RGBDOdometry::populateRGBDData(GPUTexture * rgb,
+//                                    DeviceArray2D<float> * destDepths,
+//                                    DeviceArray2D<unsigned char> * destImages)
+//{
+//    verticesToDepth(vmaps_tmp, destDepths[0], maxDepthRGB);
+//
+//    for(int i = 0; i + 1 < NUM_PYRS; i++)
+//    {
+//        pyrDownGaussF(destDepths[i], destDepths[i + 1]);
+//    }
+//
+//    cudaArray * textPtr;
+//
+//    cudaGraphicsMapResources(1, &rgb->cudaRes);
+//
+//    cudaGraphicsSubResourceGetMappedArray(&textPtr, rgb->cudaRes, 0, 0);
+//
+//    imageBGRToIntensity(textPtr, destImages[0]);
+//
+//    cudaGraphicsUnmapResources(1, &rgb->cudaRes);
+//
+//    for(int i = 0; i + 1 < NUM_PYRS; i++)
+//    {
+//        pyrDownUcharGauss(destImages[i], destImages[i + 1]);
+//    }
+//
+//    cudaDeviceSynchronize();
+//}
 
-    for(int i = 0; i + 1 < NUM_PYRS; i++)
-    {
-        pyrDownGaussF(destDepths[i], destDepths[i + 1]);
-    }
-
-    cudaArray * textPtr;
-
-    cudaGraphicsMapResources(1, &rgb->cudaRes);
-
-    cudaGraphicsSubResourceGetMappedArray(&textPtr, rgb->cudaRes, 0, 0);
-
-    imageBGRToIntensity(textPtr, destImages[0]);
-
-    cudaGraphicsUnmapResources(1, &rgb->cudaRes);
-
-    for(int i = 0; i + 1 < NUM_PYRS; i++)
-    {
-        pyrDownUcharGauss(destImages[i], destImages[i + 1]);
-    }
-
-    cudaDeviceSynchronize();
-}
-
-void RGBDOdometry::initRGBModel(GPUTexture * rgb)
+void RGBDOdometry::initRGBModel(unsigned char * rgb)
 {
     //NOTE: This depends on vmaps_tmp containing the corresponding depth from initICPModel
-    populateRGBDData(rgb, &lastDepth[0], &lastImage[0]);
+	//populateRGBDData(rgb, &lastDepth[0], &lastImage[0]);
+
+	verticesToDepth(vmaps_g_prev_[0], lastDepth[0], maxDepthRGB);
+
+	for(int i = 0; i + 1 < NUM_PYRS; i++)
+	{
+		pyrDownGaussF(lastDepth[i], lastDepth[i + 1]);
+	}
+
+	rgb_tmp.upload(rgb, height * width * 3);
+
+//	cudaArray * textPtr;
+//
+//	cudaGraphicsMapResources(1, &rgb->cudaRes);
+//
+//	cudaGraphicsSubResourceGetMappedArray(&textPtr, rgb->cudaRes, 0, 0);
+//
+//	imageBGRToIntensity(textPtr, lastImage[0]);
+//
+//	cudaGraphicsUnmapResources(1, &rgb->cudaRes);
+
+	for(int i = 0; i + 1 < NUM_PYRS; i++)
+	{
+		pyrDownUcharGauss(lastImage[i], lastImage[i + 1]);
+	}
+
+	cudaDeviceSynchronize();
 }
 
-void RGBDOdometry::initRGB(GPUTexture * rgb)
+void RGBDOdometry::initRGB(unsigned char * rgb)
 {
     //NOTE: This depends on vmaps_tmp containing the corresponding depth from initICP
-    populateRGBDData(rgb, &nextDepth[0], &nextImage[0]);
+    //populateRGBDData(rgb, &nextDepth[0], &nextImage[0]);
+
+	verticesToDepth(vmaps_curr_[0], nextDepth[0], maxDepthRGB);
+
+	for(int i = 0; i + 1 < NUM_PYRS; i++)
+	{
+		pyrDownGaussF(nextDepth[i], nextDepth[i + 1]);
+	}
+
+	rgb_tmp.upload(rgb, height * width * 3);
+
+//	cudaArray * textPtr;
+//
+//	cudaGraphicsMapResources(1, &rgb->cudaRes);
+//
+//	cudaGraphicsSubResourceGetMappedArray(&textPtr, rgb->cudaRes, 0, 0);
+//
+//	imageBGRToIntensity(textPtr, nextImage[0]);
+//
+//	cudaGraphicsUnmapResources(1, &rgb->cudaRes);
+
+	for(int i = 0; i + 1 < NUM_PYRS; i++)
+	{
+		pyrDownUcharGauss(nextImage[i], nextImage[i + 1]);
+	}
+
+	cudaDeviceSynchronize();
 }
 
 void RGBDOdometry::initFirstRGB(GPUTexture * rgb)
