@@ -79,7 +79,8 @@ RGBDOdometry::RGBDOdometry(int width,
 
     iterations.resize(NUM_PYRS);
 
-    depth_tmp.resize(NUM_PYRS);
+    depth_prev_tmp.resize(NUM_PYRS);
+    depth_curr_tmp.resize(NUM_PYRS);
 
     vmaps_g_prev_.resize(NUM_PYRS);
     nmaps_g_prev_.resize(NUM_PYRS);
@@ -92,7 +93,8 @@ RGBDOdometry::RGBDOdometry(int width,
         int pyr_rows = height >> i;
         int pyr_cols = width >> i;
 
-        depth_tmp[i].create (pyr_rows, pyr_cols);
+        depth_prev_tmp[i].create (pyr_rows, pyr_cols);
+        depth_curr_tmp[i].create (pyr_rows, pyr_cols);
 
         vmaps_g_prev_[i].create (pyr_rows*3, pyr_cols);
         nmaps_g_prev_[i].create (pyr_rows*3, pyr_cols);
@@ -101,9 +103,8 @@ RGBDOdometry::RGBDOdometry(int width,
         nmaps_curr_[i].create (pyr_rows*3, pyr_cols);
     }
 
-//    vmaps_tmp.create(height * 4 * width);
-//    nmaps_tmp.create(height * 4 * width);
-	vmaps_tmp.create(height * 3 * width);
+    vmaps_prev_tmp.create(height * 3 * width);
+    vmaps_curr_tmp.create(height * 3 * width);
 	nmaps_tmp.create(height * 3 * width);
 
 	rgb_tmp.create(height * 3 * width);
@@ -121,16 +122,16 @@ RGBDOdometry::~RGBDOdometry()
 
 void RGBDOdometry::initICP(unsigned short * depth, const float depthCutoff)
 {
-	depth_tmp[0].upload(depth, sizeof(unsigned short) * width, height, width);
+	depth_curr_tmp[0].upload(depth, sizeof(unsigned short) * width, height, width);
 
     for(int i = 1; i < NUM_PYRS; ++i)
     {
-        pyrDown(depth_tmp[i - 1], depth_tmp[i]);
+        pyrDown(depth_curr_tmp[i - 1], depth_curr_tmp[i]);
     }
 
     for(int i = 0; i < NUM_PYRS; ++i)
     {
-        createVMap(intr(i), depth_tmp[i], vmaps_curr_[i], depthCutoff);
+        createVMap(intr(i), depth_curr_tmp[i], vmaps_curr_[i], depthCutoff);
         createNMap(vmaps_curr_[i], nmaps_curr_[i]);
     }
 
@@ -139,10 +140,10 @@ void RGBDOdometry::initICP(unsigned short * depth, const float depthCutoff)
 
 void RGBDOdometry::initICP(float * vertices, float * normals)
 {
-    vmaps_tmp.upload(vertices, height * width * 3);
+    vmaps_curr_tmp.upload(vertices, height * width * 3);
 	nmaps_tmp.upload(normals, height * width * 3);
 
-    copyMaps(vmaps_tmp, nmaps_tmp, vmaps_curr_[0], nmaps_curr_[0]);
+    copyMaps(vmaps_curr_tmp, nmaps_tmp, vmaps_curr_[0], nmaps_curr_[0]);
 
     for(int i = 1; i < NUM_PYRS; ++i)
     {
@@ -155,16 +156,16 @@ void RGBDOdometry::initICP(float * vertices, float * normals)
 
 void RGBDOdometry::initICPModel(unsigned short * depth, const float depthCutoff, const Eigen::Matrix4f & modelPose)
 {
-    depth_tmp[0].upload(depth, sizeof(unsigned short) * width, height, width);
+    depth_prev_tmp[0].upload(depth, sizeof(unsigned short) * width, height, width);
 
     for(int i = 1; i < NUM_PYRS; ++i)
     {
-        pyrDown(depth_tmp[i - 1], depth_tmp[i]);
+        pyrDown(depth_prev_tmp[i - 1], depth_prev_tmp[i]);
     }
 
     for(int i = 0; i < NUM_PYRS; ++i)
     {
-        createVMap(intr(i), depth_tmp[i], vmaps_g_prev_[i], depthCutoff);
+        createVMap(intr(i), depth_prev_tmp[i], vmaps_g_prev_[i], depthCutoff);
         createNMap(vmaps_g_prev_[i], nmaps_g_prev_[i]);
     }
 
@@ -184,10 +185,10 @@ void RGBDOdometry::initICPModel(unsigned short * depth, const float depthCutoff,
 
 void RGBDOdometry::initICPModel(float * vertices, float * normals, const Eigen::Matrix4f & modelPose)
 {
-    vmaps_tmp.upload(vertices, height * width * 3);
+    vmaps_prev_tmp.upload(vertices, height * width * 3);
     nmaps_tmp.upload(normals, height * width * 3);
 
-    copyMaps(vmaps_tmp, nmaps_tmp, vmaps_g_prev_[0], nmaps_g_prev_[0]);
+    copyMaps(vmaps_prev_tmp, nmaps_tmp, vmaps_g_prev_[0], nmaps_g_prev_[0]);
 
     for(int i = 1; i < NUM_PYRS; ++i)
     {
@@ -243,7 +244,7 @@ void RGBDOdometry::initRGBModel(unsigned char * rgb)
     //NOTE: This depends on vmaps_tmp containing the corresponding depth from initICPModel
 	//populateRGBDData(rgb, &lastDepth[0], &lastImage[0]);
 
-	verticesToDepth(vmaps_g_prev_[0], lastDepth[0], maxDepthRGB);
+	verticesToDepth(vmaps_prev_tmp, lastDepth[0], maxDepthRGB);
 
 	for(int i = 0; i + 1 < NUM_PYRS; i++)
 	{
@@ -275,7 +276,7 @@ void RGBDOdometry::initRGB(unsigned char * rgb)
     //NOTE: This depends on vmaps_tmp containing the corresponding depth from initICP
     //populateRGBDData(rgb, &nextDepth[0], &nextImage[0]);
 
-	verticesToDepth(vmaps_curr_[0], nextDepth[0], maxDepthRGB);
+	verticesToDepth(vmaps_curr_tmp, nextDepth[0], maxDepthRGB);
 
 	for(int i = 0; i + 1 < NUM_PYRS; i++)
 	{

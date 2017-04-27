@@ -44,9 +44,9 @@ class RGBDOdometry
 
         void initICP(float * vertices, float * normals);
 
-		void initICPModel(unsigned short * depth, const float depthCutoff, const Eigen::Matrix4f & modelPose = Eigen::Matrix4f::Identity());
+		void initICPModel(unsigned short * depth, const float depthCutoff, const Eigen::Matrix4f & modelPose);
 
-        void initICPModel(float * vertices, float * normals, const Eigen::Matrix4f & modelPose = Eigen::Matrix4f::Identity());
+        void initICPModel(float * vertices, float * normals, const Eigen::Matrix4f & modelPose);
 
         void initRGB(unsigned char * rgb);
 
@@ -79,9 +79,11 @@ class RGBDOdometry
 //                              DeviceArray2D<float> * destDepths,
 //                              DeviceArray2D<unsigned char> * destImages);
 
-        std::vector<DeviceArray2D<unsigned short> > depth_tmp;
+        std::vector<DeviceArray2D<unsigned short> > depth_prev_tmp;
+        std::vector<DeviceArray2D<unsigned short> > depth_curr_tmp;
 
-        DeviceArray<float> vmaps_tmp;
+        DeviceArray<float> vmaps_prev_tmp;
+        DeviceArray<float> vmaps_curr_tmp;
         DeviceArray<float> nmaps_tmp;
 
 		DeviceArray<unsigned char> rgb_tmp;
