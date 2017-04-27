@@ -4,14 +4,29 @@ project(RGBDOdometry)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}")
 
-find_package(Pangolin 0.1 REQUIRED)
+# find_package(Pangolin 0.1 REQUIRED)
 find_package(CUDA REQUIRED)
-find_package(SuiteSparse REQUIRED)
+# find_package(SuiteSparse REQUIRED)
 
-include_directories(${Pangolin_INCLUDE_DIRS})
+#remove this as soon as eigen is shipped with FindEigen.cmake
+  get_filename_component(EIGEN_ROOT "/usr/include/local/eigen3" PATH)
+  if(PKG_CONFIG_FOUND)
+    pkg_check_modules(PC_EIGEN eigen3)
+  endif(PKG_CONFIG_FOUND)
+  find_path(EIGEN_INCLUDE_DIRS Eigen/Core
+    HINTS ${PC_EIGEN_INCLUDEDIR} ${PC_EIGEN_INCLUDE_DIRS} 
+          "${EIGEN_ROOT}" "$ENV{EIGEN_ROOT}"
+    PATHS "$ENV{PROGRAMFILES}/Eigen 3.0.0" "$ENV{PROGRAMW6432}/Eigen 3.0.0"
+          "$ENV{PROGRAMFILES}/Eigen" "$ENV{PROGRAMW6432}/Eigen"   
+    PATH_SUFFIXES eigen3 include/eigen3 include)
+  find_package_handle_standard_args(eigen DEFAULT_MSG EIGEN_INCLUDE_DIRS)
+  set(EIGEN_DEFINITIONS ${EIGEN_DEFINITIONS} -DEIGEN_USE_NEW_STDVECTOR 
+-DEIGEN_YES_I_KNOW_SPARSE_MODULE_IS_NOT_STABLE_YET)
+
+# include_directories(${Pangolin_INCLUDE_DIRS})
 include_directories(${CUDA_INCLUDE_DIRS})
 include_directories(${EIGEN_INCLUDE_DIRS})
-include_directories(${SUITESPARSE_INCLUDE_DIRS})
+# include_directories(${SUITESPARSE_INCLUDE_DIRS})
 include_directories(include)
 
 file(GLOB srcs src/*.cpp)
@@ -37,11 +52,15 @@ add_library(rgbd_odometry SHARED
             ${cuda_objs} 
             ${cuda_containers}
 )
+# target_link_libraries(rgbd_odometry
+#                       ${Eigen_LIBRARIES}
+#                       ${Pangolin_LIBRARIES}
+#                       ${CUDA_LIBRARIES}
+#                       ${SUITESPARSE_LIBRARIES}
+# )
 target_link_libraries(rgbd_odometry
                       ${Eigen_LIBRARIES}
-                      ${Pangolin_LIBRARIES}
                       ${CUDA_LIBRARIES}
-                      ${SUITESPARSE_LIBRARIES}
 )
 
 install(TARGETS rgbd_odometry

@@ -20,7 +20,7 @@
 #define RGBDODOMETRY_H_
 
 //#include "Stopwatch.h"
-#include <RGBDOdometry/GPUTexture.h>
+//#include <RGBDOdometry/GPUTexture.h>
 #include <RGBDOdometry/cuda_utils/cudafuncs.cuh>
 #include <RGBDOdometry/OdometryProvider.h>
 #include <RGBDOdometry/GPUConfig.h>
@@ -52,7 +52,7 @@ class RGBDOdometry
 
         void initRGBModel(unsigned char * rgb);
 
-        void initFirstRGB(GPUTexture * rgb);
+        void initFirstRGB(unsigned char * rgb);
 
         void getIncrementalTransformation(Eigen::Vector3f & trans,
                                           Eigen::Matrix<float, 3, 3, Eigen::RowMajor> & rot,
@@ -75,6 +75,11 @@ class RGBDOdometry
         Eigen::Matrix<double, 6, 1> lastb;
 
     private:
+
+		enum InitializationType {DEPTH_MAP, VERTEX_MAP};
+		InitializationType prev_init_type;
+		InitializationType curr_init_type;
+
 //        void populateRGBDData(GPUTexture * rgb,
 //                              DeviceArray2D<float> * destDepths,
 //                              DeviceArray2D<unsigned char> * destImages);

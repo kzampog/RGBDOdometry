@@ -151,8 +151,10 @@ void resizeVMap(const DeviceArray2D<float>& input,
 void resizeNMap(const DeviceArray2D<float>& input,
                 DeviceArray2D<float>& output);
 
-void imageBGRToIntensity(cudaArray * cuArr,
-                         DeviceArray2D<unsigned char> & dst);
+//void imageBGRToIntensity(cudaArray * cuArr,
+//                         DeviceArray2D<unsigned char> & dst);
+void imageBGRToIntensity(const DeviceArray<unsigned char> & src,
+						 DeviceArray2D<unsigned char> & dst);
 
 void verticesToDepth(DeviceArray<float>& vmap_src,
                      DeviceArray2D<float> & dst,
@@ -175,5 +177,9 @@ void pyrDownUcharGauss(const DeviceArray2D<unsigned char>& src,
 void computeDerivativeImages(DeviceArray2D<unsigned char>& src,
                              DeviceArray2D<short>& dx,
                              DeviceArray2D<short>& dy);
+
+void shortDepthToMetres(const DeviceArray2D<unsigned short>& src,
+						DeviceArray2D<float> & dst,
+						float cutOff);
 
 #endif /* CUDA_CUDAFUNCS_CUH_ */

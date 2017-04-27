@@ -122,6 +122,8 @@ RGBDOdometry::~RGBDOdometry()
 
 void RGBDOdometry::initICP(unsigned short * depth, const float depthCutoff)
 {
+    curr_init_type = RGBDOdometry::DEPTH_MAP;
+
 	depth_curr_tmp[0].upload(depth, sizeof(unsigned short) * width, height, width);
 
     for(int i = 1; i < NUM_PYRS; ++i)
@@ -140,6 +142,8 @@ void RGBDOdometry::initICP(unsigned short * depth, const float depthCutoff)
 
 void RGBDOdometry::initICP(float * vertices, float * normals)
 {
+    curr_init_type = RGBDOdometry::VERTEX_MAP;
+
     vmaps_curr_tmp.upload(vertices, height * width * 3);
 	nmaps_tmp.upload(normals, height * width * 3);
 
@@ -156,6 +160,8 @@ void RGBDOdometry::initICP(float * vertices, float * normals)
 
 void RGBDOdometry::initICPModel(unsigned short * depth, const float depthCutoff, const Eigen::Matrix4f & modelPose)
 {
+    prev_init_type = RGBDOdometry::DEPTH_MAP;
+
     depth_prev_tmp[0].upload(depth, sizeof(unsigned short) * width, height, width);
 
     for(int i = 1; i < NUM_PYRS; ++i)
@@ -185,6 +191,8 @@ void RGBDOdometry::initICPModel(unsigned short * depth, const float depthCutoff,
 
 void RGBDOdometry::initICPModel(float * vertices, float * normals, const Eigen::Matrix4f & modelPose)
 {
+    prev_init_type = RGBDOdometry::VERTEX_MAP;
+
     vmaps_prev_tmp.upload(vertices, height * width * 3);
     nmaps_tmp.upload(normals, height * width * 3);
 
@@ -241,10 +249,14 @@ void RGBDOdometry::initICPModel(float * vertices, float * normals, const Eigen::
 
 void RGBDOdometry::initRGBModel(unsigned char * rgb)
 {
-    //NOTE: This depends on vmaps_tmp containing the corresponding depth from initICPModel
-	//populateRGBDData(rgb, &lastDepth[0], &lastImage[0]);
-
-	verticesToDepth(vmaps_prev_tmp, lastDepth[0], maxDepthRGB);
+    if (prev_init_type == RGBDOdometry::DEPTH_MAP)
+    {
+		shortDepthToMetres(depth_prev_tmp[0], lastDepth[0], maxDepthRGB);
+    }
+    else if (prev_init_type == RGBDOdometry::VERTEX_MAP)
+    {
+        verticesToDepth(vmaps_prev_tmp, lastDepth[0], maxDepthRGB);
+    }
 
 	for(int i = 0; i + 1 < NUM_PYRS; i++)
 	{
@@ -253,15 +265,7 @@ void RGBDOdometry::initRGBModel(unsigned char * rgb)
 
 	rgb_tmp.upload(rgb, height * width * 3);
 
-//	cudaArray * textPtr;
-//
-//	cudaGraphicsMapResources(1, &rgb->cudaRes);
-//
-//	cudaGraphicsSubResourceGetMappedArray(&textPtr, rgb->cudaRes, 0, 0);
-//
-//	imageBGRToIntensity(textPtr, lastImage[0]);
-//
-//	cudaGraphicsUnmapResources(1, &rgb->cudaRes);
+	imageBGRToIntensity(rgb_tmp, lastImage[0]);
 
 	for(int i = 0; i + 1 < NUM_PYRS; i++)
 	{
@@ -273,10 +277,15 @@ void RGBDOdometry::initRGBModel(unsigned char * rgb)
 
 void RGBDOdometry::initRGB(unsigned char * rgb)
 {
-    //NOTE: This depends on vmaps_tmp containing the corresponding depth from initICP
-    //populateRGBDData(rgb, &nextDepth[0], &nextImage[0]);
-
-	verticesToDepth(vmaps_curr_tmp, nextDepth[0], maxDepthRGB);
+    if (curr_init_type == RGBDOdometry::DEPTH_MAP)
+    {
+		shortDepthToMetres(depth_curr_tmp[0], nextDepth[0], maxDepthRGB);
+//		shortDepthToMetres(depth_prev_tmp[0], nextDepth[0], maxDepthRGB);
+    }
+    else if (curr_init_type == RGBDOdometry::VERTEX_MAP)
+    {
+        verticesToDepth(vmaps_curr_tmp, nextDepth[0], maxDepthRGB);
+    }
 
 	for(int i = 0; i + 1 < NUM_PYRS; i++)
 	{
@@ -285,15 +294,7 @@ void RGBDOdometry::initRGB(unsigned char * rgb)
 
 	rgb_tmp.upload(rgb, height * width * 3);
 
-//	cudaArray * textPtr;
-//
-//	cudaGraphicsMapResources(1, &rgb->cudaRes);
-//
-//	cudaGraphicsSubResourceGetMappedArray(&textPtr, rgb->cudaRes, 0, 0);
-//
-//	imageBGRToIntensity(textPtr, nextImage[0]);
-//
-//	cudaGraphicsUnmapResources(1, &rgb->cudaRes);
+	imageBGRToIntensity(rgb_tmp, nextImage[0]);
 
 	for(int i = 0; i + 1 < NUM_PYRS; i++)
 	{
@@ -303,22 +304,18 @@ void RGBDOdometry::initRGB(unsigned char * rgb)
 	cudaDeviceSynchronize();
 }
 
-void RGBDOdometry::initFirstRGB(GPUTexture * rgb)
+void RGBDOdometry::initFirstRGB(unsigned char * rgb)
 {
-    cudaArray * textPtr;
+	rgb_tmp.upload(rgb, height * width * 3);
 
-    cudaGraphicsMapResources(1, &rgb->cudaRes);
-
-    cudaGraphicsSubResourceGetMappedArray(&textPtr, rgb->cudaRes, 0, 0);
-
-    imageBGRToIntensity(textPtr, lastNextImage[0]);
-
-    cudaGraphicsUnmapResources(1, &rgb->cudaRes);
+	imageBGRToIntensity(rgb_tmp, lastNextImage[0]);
 
     for(int i = 0; i + 1 < NUM_PYRS; i++)
     {
         pyrDownUcharGauss(lastNextImage[i], lastNextImage[i + 1]);
     }
+
+	cudaDeviceSynchronize();
 }
 
 void RGBDOdometry::getIncrementalTransformation(Eigen::Vector3f & trans,

@@ -545,9 +545,38 @@ void verticesToDepth(DeviceArray<float>& vmap_src, DeviceArray2D<float> & dst, f
     cudaSafeCall ( cudaGetLastError () );
 };
 
-texture<uchar4, 2, cudaReadModeElementType> inTex;
+//texture<uchar4, 2, cudaReadModeElementType> inTex;
+//
+//__global__ void bgr2IntensityKernel(PtrStepSz<unsigned char> dst)
+//{
+//    int x = blockIdx.x * blockDim.x + threadIdx.x;
+//    int y = blockIdx.y * blockDim.y + threadIdx.y;
+//
+//    if (x >= dst.cols || y >= dst.rows)
+//        return;
+//
+//    uchar4 src = tex2D(inTex, x, y);
+//
+//    int value = (float)src.x * 0.114f + (float)src.y * 0.299f + (float)src.z * 0.587f;
+//
+//    dst.ptr (y)[x] = value;
+//}
+//
+//void imageBGRToIntensity(cudaArray * cuArr, DeviceArray2D<unsigned char> & dst)
+//{
+//    dim3 block (32, 8);
+//    dim3 grid (getGridDim (dst.cols (), block.x), getGridDim (dst.rows (), block.y));
+//
+//    cudaSafeCall(cudaBindTextureToArray(inTex, cuArr));
+//
+//    bgr2IntensityKernel<<<grid, block>>>(dst);
+//
+//    cudaSafeCall(cudaGetLastError());
+//
+//    cudaSafeCall(cudaUnbindTexture(inTex));
+//};
 
-__global__ void bgr2IntensityKernel(PtrStepSz<unsigned char> dst)
+__global__ void bgr2IntensityKernel(const unsigned char * src, PtrStepSz<unsigned char> dst)
 {
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -555,26 +584,20 @@ __global__ void bgr2IntensityKernel(PtrStepSz<unsigned char> dst)
     if (x >= dst.cols || y >= dst.rows)
         return;
 
-    uchar4 src = tex2D(inTex, x, y);
-
-    int value = (float)src.x * 0.114f + (float)src.y * 0.299f + (float)src.z * 0.587f;
+    // 0.2989 * R + 0.5870 * G + 0.1140 * B
+    int value = (float)src[y*dst.cols*3+(x*3)+0] * 0.114f + (float)src[y*dst.cols*3+(x*3)+1] * 0.587f + (float)src[y*dst.cols*3+(x*3)+2] * 0.299f;
 
     dst.ptr (y)[x] = value;
 }
 
-void imageBGRToIntensity(cudaArray * cuArr, DeviceArray2D<unsigned char> & dst)
+void imageBGRToIntensity(const DeviceArray<unsigned char> & src, DeviceArray2D<unsigned char> & dst)
 {
     dim3 block (32, 8);
     dim3 grid (getGridDim (dst.cols (), block.x), getGridDim (dst.rows (), block.y));
 
-    cudaSafeCall(cudaBindTextureToArray(inTex, cuArr));
-
-    bgr2IntensityKernel<<<grid, block>>>(dst);
-
-    cudaSafeCall(cudaGetLastError());
-
-    cudaSafeCall(cudaUnbindTexture(inTex));
-};
+    bgr2IntensityKernel<<<grid, block>>>(src, dst);
+    cudaSafeCall ( cudaGetLastError () );
+}
 
 __constant__ float gsobel_x3x3[9];
 __constant__ float gsobel_y3x3[9];
@@ -671,3 +694,25 @@ void projectToPointCloud(const DeviceArray2D<float> & depth,
     cudaSafeCall ( cudaGetLastError () );
     cudaSafeCall (cudaDeviceSynchronize ());
 }
+
+__global__ void short2FloatKernel(const PtrStepSz<unsigned short> src, PtrStepSz<float> dst, float cutOff)
+{
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= dst.cols || y >= dst.rows)
+        return;
+
+    float z = ((float)src.ptr(y)[x]) / 1000.0f;
+
+    dst.ptr(y)[x] = z > cutOff  || z <= 0 ? __int_as_float(0x7fffffff)/*CUDART_NAN_F*/ : z;
+}
+
+void shortDepthToMetres(const DeviceArray2D<unsigned short>& src, DeviceArray2D<float> & dst, float cutOff)
+{
+    dim3 block (32, 8);
+    dim3 grid (getGridDim (dst.cols (), block.x), getGridDim (dst.rows (), block.y));
+
+    short2FloatKernel<<<grid, block>>>(src, dst, cutOff);
+    cudaSafeCall ( cudaGetLastError () );
+};
