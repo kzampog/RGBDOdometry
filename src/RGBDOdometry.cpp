@@ -62,7 +62,7 @@ RGBDOdometry::RGBDOdometry(int width,
         nextDepth[i].create(pyrDims.at(i).x, pyrDims.at(i).y);
         nextImage[i].create(pyrDims.at(i).x, pyrDims.at(i).y);
 
-        lastNextImage[i].create(pyrDims.at(i).x, pyrDims.at(i).y);
+//        lastNextImage[i].create(pyrDims.at(i).x, pyrDims.at(i).y);
 
         nextdIdx[i].create(pyrDims.at(i).x, pyrDims.at(i).y);
         nextdIdy[i].create(pyrDims.at(i).x, pyrDims.at(i).y);
@@ -77,7 +77,23 @@ RGBDOdometry::RGBDOdometry(int width,
     intr.fx = fx;
     intr.fy = fy;
 
-    iterations.resize(NUM_PYRS);
+	const int iter_norm[] = {10, 5, 4, 3, 2};
+    const int iter_fast[] = {3, 5, 4, 3, 2};
+
+	iterations.resize(NUM_PYRS);
+	iterations_normal.resize(NUM_PYRS);
+	iterations_fast.resize(NUM_PYRS);
+	// ASSIGN HERE
+	for (int i = 0; i < std::min(NUM_PYRS, 5); i++)
+	{
+        iterations_normal[i] = iter_norm[i];
+        iterations_fast[i] = iter_fast[i];
+	}
+    for (int i = std::min(NUM_PYRS, 5); i < NUM_PYRS; i++)
+    {
+        iterations_normal[i] = 2;
+        iterations_fast[i] = 2;
+    }
 
     depth_prev_tmp.resize(NUM_PYRS);
     depth_curr_tmp.resize(NUM_PYRS);
@@ -218,35 +234,6 @@ void RGBDOdometry::initICPModel(float * vertices, float * normals, const Eigen::
     cudaDeviceSynchronize();
 }
 
-//void RGBDOdometry::populateRGBDData(GPUTexture * rgb,
-//                                    DeviceArray2D<float> * destDepths,
-//                                    DeviceArray2D<unsigned char> * destImages)
-//{
-//    verticesToDepth(vmaps_tmp, destDepths[0], maxDepthRGB);
-//
-//    for(int i = 0; i + 1 < NUM_PYRS; i++)
-//    {
-//        pyrDownGaussF(destDepths[i], destDepths[i + 1]);
-//    }
-//
-//    cudaArray * textPtr;
-//
-//    cudaGraphicsMapResources(1, &rgb->cudaRes);
-//
-//    cudaGraphicsSubResourceGetMappedArray(&textPtr, rgb->cudaRes, 0, 0);
-//
-//    imageBGRToIntensity(textPtr, destImages[0]);
-//
-//    cudaGraphicsUnmapResources(1, &rgb->cudaRes);
-//
-//    for(int i = 0; i + 1 < NUM_PYRS; i++)
-//    {
-//        pyrDownUcharGauss(destImages[i], destImages[i + 1]);
-//    }
-//
-//    cudaDeviceSynchronize();
-//}
-
 void RGBDOdometry::initRGBModel(unsigned char * rgb)
 {
     if (prev_init_type == RGBDOdometry::DEPTH_MAP)
@@ -304,33 +291,41 @@ void RGBDOdometry::initRGB(unsigned char * rgb)
 	cudaDeviceSynchronize();
 }
 
-void RGBDOdometry::initFirstRGB(unsigned char * rgb)
-{
-	rgb_tmp.upload(rgb, height * width * 3);
+//void RGBDOdometry::initFirstRGB(unsigned char * rgb)
+//{
+//	rgb_tmp.upload(rgb, height * width * 3);
+//
+//	imageBGRToIntensity(rgb_tmp, lastNextImage[0]);
+//
+//    for(int i = 0; i + 1 < NUM_PYRS; i++)
+//    {
+//        pyrDownUcharGauss(lastNextImage[i], lastNextImage[i + 1]);
+//    }
+//
+//	cudaDeviceSynchronize();
+//}
 
-	imageBGRToIntensity(rgb_tmp, lastNextImage[0]);
-
-    for(int i = 0; i + 1 < NUM_PYRS; i++)
-    {
-        pyrDownUcharGauss(lastNextImage[i], lastNextImage[i + 1]);
-    }
-
-	cudaDeviceSynchronize();
-}
-
-void RGBDOdometry::getIncrementalTransformation(Eigen::Vector3f & trans,
-                                                Eigen::Matrix<float, 3, 3, Eigen::RowMajor> & rot,
+void RGBDOdometry::getIncrementalTransformation(Eigen::Matrix4f & currPose,
                                                 const bool & rgbOnly,
                                                 const float & icpWeight,
                                                 const bool & pyramid,
                                                 const bool & fastOdom,
                                                 const bool & so3)
 {
+	iterations = fastOdom ? iterations_fast : iterations_normal;
+	if (!pyramid)
+	{
+		for (int i = 1; i < NUM_PYRS; i++)
+		{
+			iterations[i] = 0;
+		}
+	}
+
     bool icp = !rgbOnly && icpWeight > 0;
     bool rgb = rgbOnly || icpWeight < 100;
 
-    Eigen::Matrix<float, 3, 3, Eigen::RowMajor> Rprev = rot;
-    Eigen::Vector3f tprev = trans;
+    Eigen::Matrix<float, 3, 3, Eigen::RowMajor> Rprev = currPose.topLeftCorner(3,3);
+    Eigen::Vector3f tprev = currPose.topRightCorner(3,1);
 
     Eigen::Matrix<float, 3, 3, Eigen::RowMajor> Rcurr = Rprev;
     Eigen::Vector3f tcurr = tprev;
@@ -347,7 +342,7 @@ void RGBDOdometry::getIncrementalTransformation(Eigen::Vector3f & trans,
 
     if(so3)
     {
-        int pyramidLevel = 2;
+        int pyramidLevel = NUM_PYRS - 1;
 
         Eigen::Matrix<float, 3, 3, Eigen::RowMajor> R_lr = Eigen::Matrix<float, 3, 3, Eigen::RowMajor>::Identity();
 
@@ -364,7 +359,7 @@ void RGBDOdometry::getIncrementalTransformation(Eigen::Vector3f & trans,
 
         Eigen::Matrix<double, 3, 3, Eigen::RowMajor> lastResultR = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>::Identity();
 
-        for(int i = 0; i < 10; i++)
+        for(int i = 0; i < iterations[0]; i++)
         {
             Eigen::Matrix<float, 3, 3, Eigen::RowMajor> jtj;
             Eigen::Matrix<float, 3, 1> jtr;
@@ -385,7 +380,8 @@ void RGBDOdometry::getIncrementalTransformation(Eigen::Vector3f & trans,
             float residual[2];
 
 //            TICK("so3Step");
-            so3Step(lastNextImage[pyramidLevel],
+//			so3Step(lastNextImage[pyramidLevel],
+            so3Step(lastImage[pyramidLevel],
                     nextImage[pyramidLevel],
                     imageBasis,
                     kinv,
@@ -434,10 +430,6 @@ void RGBDOdometry::getIncrementalTransformation(Eigen::Vector3f & trans,
             }
         }
     }
-
-    iterations[0] = fastOdom ? 3 : 10;
-    iterations[1] = pyramid ? 5 : 0;
-    iterations[2] = pyramid ? 4 : 0;
 
     Eigen::Matrix<float, 3, 3, Eigen::RowMajor> Rprev_inv = Rprev.inverse();
     mat33 device_Rprev_inv = Rprev_inv;
@@ -643,16 +635,16 @@ void RGBDOdometry::getIncrementalTransformation(Eigen::Vector3f & trans,
         tcurr = tprev;
     }
 
-    if(so3)
-    {
-        for(int i = 0; i < NUM_PYRS; i++)
-        {
-            std::swap(lastNextImage[i], nextImage[i]);
-        }
-    }
+//    if(so3)
+//    {
+//        for(int i = 0; i < NUM_PYRS; i++)
+//        {
+//            std::swap(lastNextImage[i], nextImage[i]);
+//        }
+//    }
 
-    trans = tcurr;
-    rot = Rcurr;
+    currPose.topLeftCorner(3,3) = Rcurr;
+    currPose.topRightCorner(3,1) = tcurr;
 }
 
 Eigen::MatrixXd RGBDOdometry::getCovariance()

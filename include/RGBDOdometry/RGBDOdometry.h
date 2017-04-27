@@ -52,10 +52,9 @@ class RGBDOdometry
 
         void initRGBModel(unsigned char * rgb);
 
-        void initFirstRGB(unsigned char * rgb);
+//        void initFirstRGB(unsigned char * rgb);
 
-        void getIncrementalTransformation(Eigen::Vector3f & trans,
-                                          Eigen::Matrix<float, 3, 3, Eigen::RowMajor> & rot,
+        void getIncrementalTransformation(Eigen::Matrix4f & currPose,
                                           const bool & rgbOnly,
                                           const float & icpWeight,
                                           const bool & pyramid,
@@ -79,10 +78,6 @@ class RGBDOdometry
 		enum InitializationType {DEPTH_MAP, VERTEX_MAP};
 		InitializationType prev_init_type;
 		InitializationType curr_init_type;
-
-//        void populateRGBDData(GPUTexture * rgb,
-//                              DeviceArray2D<float> * destDepths,
-//                              DeviceArray2D<unsigned char> * destImages);
 
         std::vector<DeviceArray2D<unsigned short> > depth_prev_tmp;
         std::vector<DeviceArray2D<unsigned short> > depth_curr_tmp;
@@ -115,23 +110,26 @@ class RGBDOdometry
 
         std::vector<int2> pyrDims;
 
-        static const int NUM_PYRS = 3;
+        static const int NUM_PYRS = 4;
 
         DeviceArray2D<float> lastDepth[NUM_PYRS];
         DeviceArray2D<unsigned char> lastImage[NUM_PYRS];
 
         DeviceArray2D<float> nextDepth[NUM_PYRS];
         DeviceArray2D<unsigned char> nextImage[NUM_PYRS];
+
         DeviceArray2D<short> nextdIdx[NUM_PYRS];
         DeviceArray2D<short> nextdIdy[NUM_PYRS];
 
-        DeviceArray2D<unsigned char> lastNextImage[NUM_PYRS];
+//        DeviceArray2D<unsigned char> lastNextImage[NUM_PYRS];
 
         DeviceArray2D<DataTerm> corresImg[NUM_PYRS];
 
         DeviceArray2D<float3> pointClouds[NUM_PYRS];
 
-        std::vector<int> iterations;
+		std::vector<int> iterations;
+		std::vector<int> iterations_normal;
+		std::vector<int> iterations_fast;
         std::vector<float> minimumGradientMagnitudes;
 
         float distThres_;
