@@ -576,6 +576,29 @@ void verticesToDepth(DeviceArray<float>& vmap_src, DeviceArray2D<float> & dst, f
 //    cudaSafeCall(cudaUnbindTexture(inTex));
 //};
 
+__global__ void rgb2IntensityKernel(const unsigned char * src, PtrStepSz<unsigned char> dst)
+{
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x >= dst.cols || y >= dst.rows)
+        return;
+
+    // 0.2989 * R + 0.5870 * G + 0.1140 * B
+    int value = (float)src[y*dst.cols*3+(x*3)+0] * 0.299f + (float)src[y*dst.cols*3+(x*3)+1] * 0.587f + (float)src[y*dst.cols*3+(x*3)+2] * 0.114f;
+
+    dst.ptr (y)[x] = value;
+}
+
+void imageRGBToIntensity(const DeviceArray<unsigned char> & src, DeviceArray2D<unsigned char> & dst)
+{
+    dim3 block (32, 8);
+    dim3 grid (getGridDim (dst.cols (), block.x), getGridDim (dst.rows (), block.y));
+
+    rgb2IntensityKernel<<<grid, block>>>(src, dst);
+    cudaSafeCall ( cudaGetLastError () );
+}
+
 __global__ void bgr2IntensityKernel(const unsigned char * src, PtrStepSz<unsigned char> dst)
 {
     int x = blockIdx.x * blockDim.x + threadIdx.x;

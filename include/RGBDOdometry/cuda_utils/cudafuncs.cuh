@@ -153,6 +153,10 @@ void resizeNMap(const DeviceArray2D<float>& input,
 
 //void imageBGRToIntensity(cudaArray * cuArr,
 //                         DeviceArray2D<unsigned char> & dst);
+
+void imageRGBToIntensity(const DeviceArray<unsigned char> & src,
+                         DeviceArray2D<unsigned char> & dst);
+
 void imageBGRToIntensity(const DeviceArray<unsigned char> & src,
 						 DeviceArray2D<unsigned char> & dst);
 

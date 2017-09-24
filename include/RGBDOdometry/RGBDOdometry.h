@@ -32,6 +32,7 @@ class RGBDOdometry
 {
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
         RGBDOdometry(int width,
                      int height,
                      float cx, float cy, float fx, float fy,
@@ -48,9 +49,9 @@ class RGBDOdometry
 
         void initICPModel(float * vertices, float * normals, const Eigen::Matrix4f & modelPose);
 
-        void initRGB(unsigned char * rgb);
+        void initRGB(unsigned char * rgb, bool bgr_order = false);
 
-        void initRGBModel(unsigned char * rgb);
+        void initRGBModel(unsigned char * rgb, bool bgr_order = false);
 
 //        void initFirstRGB(unsigned char * rgb);
 

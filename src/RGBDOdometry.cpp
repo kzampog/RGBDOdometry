@@ -234,7 +234,7 @@ void RGBDOdometry::initICPModel(float * vertices, float * normals, const Eigen::
     cudaDeviceSynchronize();
 }
 
-void RGBDOdometry::initRGBModel(unsigned char * rgb)
+void RGBDOdometry::initRGBModel(unsigned char * rgb, bool bgr_order)
 {
     if (prev_init_type == RGBDOdometry::DEPTH_MAP)
     {
@@ -252,7 +252,13 @@ void RGBDOdometry::initRGBModel(unsigned char * rgb)
 
 	rgb_tmp.upload(rgb, height * width * 3);
 
-	imageBGRToIntensity(rgb_tmp, lastImage[0]);
+    if (bgr_order) {
+        imageBGRToIntensity(rgb_tmp, lastImage[0]);
+    }
+    else
+    {
+        imageRGBToIntensity(rgb_tmp, lastImage[0]);
+    }
 
 	for(int i = 0; i + 1 < NUM_PYRS; i++)
 	{
@@ -262,7 +268,7 @@ void RGBDOdometry::initRGBModel(unsigned char * rgb)
 	cudaDeviceSynchronize();
 }
 
-void RGBDOdometry::initRGB(unsigned char * rgb)
+void RGBDOdometry::initRGB(unsigned char * rgb, bool bgr_order)
 {
     if (curr_init_type == RGBDOdometry::DEPTH_MAP)
     {
@@ -281,7 +287,14 @@ void RGBDOdometry::initRGB(unsigned char * rgb)
 
 	rgb_tmp.upload(rgb, height * width * 3);
 
-	imageBGRToIntensity(rgb_tmp, nextImage[0]);
+    if (bgr_order) {
+        imageBGRToIntensity(rgb_tmp, nextImage[0]);
+    }
+    else
+    {
+        imageRGBToIntensity(rgb_tmp, nextImage[0]);
+    }
+
 
 	for(int i = 0; i + 1 < NUM_PYRS; i++)
 	{
