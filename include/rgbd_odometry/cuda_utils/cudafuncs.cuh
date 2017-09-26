@@ -58,8 +58,8 @@
 #define MAX_THREADS 1024
 #endif
 
-#include <RGBDOdometry/cuda_utils/containers/device_array.hpp>
-#include <RGBDOdometry/cuda_utils/types.cuh>
+#include <rgbd_odometry/cuda_utils/containers/device_array.hpp>
+#include <rgbd_odometry/cuda_utils/types.cuh>
 
 void icpStep(const mat33& Rcurr,
              const float3& tcurr,

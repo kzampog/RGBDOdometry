@@ -49,9 +49,9 @@
  *  Author: Anatoly Baskeheev, Itseez Ltd, (myname.mysurname@mycompany.com)
  */
 
-#include <RGBDOdometry/cuda_utils/cudafuncs.cuh>
-#include <RGBDOdometry/cuda_utils/convenience.cuh>
-#include <RGBDOdometry/cuda_utils/operators.cuh>
+#include <rgbd_odometry/cuda_utils/cudafuncs.cuh>
+#include <rgbd_odometry/cuda_utils/convenience.cuh>
+#include <rgbd_odometry/cuda_utils/operators.cuh>
 
 
 __global__ void pyrDownGaussKernel (const PtrStepSz<unsigned short> src, PtrStepSz<unsigned short> dst, float sigma_color)

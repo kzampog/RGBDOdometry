@@ -16,7 +16,7 @@
  *
  */
 
-#include <RGBDOdometry/RGBDOdometry.h>
+#include <rgbd_odometry/rgbd_odometry.h>
 
 RGBDOdometry::RGBDOdometry(int width,
                            int height,

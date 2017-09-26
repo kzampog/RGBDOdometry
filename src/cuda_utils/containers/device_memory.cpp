@@ -34,8 +34,8 @@
  *  Author: Anatoly Baskeheev, Itseez Ltd, (myname.mysurname@mycompany.com)
  */
 
-#include <RGBDOdometry/cuda_utils/containers/device_memory.hpp>
-#include <RGBDOdometry/cuda_utils/convenience.cuh>
+#include <rgbd_odometry/cuda_utils/containers/device_memory.hpp>
+#include <rgbd_odometry/cuda_utils/convenience.cuh>
 
 #include <cuda_runtime_api.h>
 #include <assert.h>

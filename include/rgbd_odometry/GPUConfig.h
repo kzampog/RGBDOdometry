@@ -25,7 +25,7 @@
 #include <cassert>
 #include <map>
 #include <cuda_runtime_api.h>
-#include <RGBDOdometry/cuda_utils/convenience.cuh>
+#include <rgbd_odometry/cuda_utils/convenience.cuh>
 
 class GPUConfig
 {

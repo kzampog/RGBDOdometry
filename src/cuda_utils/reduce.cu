@@ -49,9 +49,9 @@
  *  Author: Anatoly Baskeheev, Itseez Ltd, (myname.mysurname@mycompany.com)
  */
 
-#include <RGBDOdometry/cuda_utils/cudafuncs.cuh>
-#include <RGBDOdometry/cuda_utils/convenience.cuh>
-#include <RGBDOdometry/cuda_utils/operators.cuh>
+#include <rgbd_odometry/cuda_utils/cudafuncs.cuh>
+#include <rgbd_odometry/cuda_utils/convenience.cuh>
+#include <rgbd_odometry/cuda_utils/operators.cuh>
 
 #if __CUDA_ARCH__ < 300
 __inline__ __device__

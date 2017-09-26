@@ -20,10 +20,10 @@
 #define RGBDODOMETRY_H_
 
 //#include "Stopwatch.h"
-//#include <RGBDOdometry/GPUTexture.h>
-#include <RGBDOdometry/cuda_utils/cudafuncs.cuh>
-#include <RGBDOdometry/OdometryProvider.h>
-#include <RGBDOdometry/GPUConfig.h>
+//#include <rgbd_odometry/GPUTexture.h>
+#include <rgbd_odometry/cuda_utils/cudafuncs.cuh>
+#include <rgbd_odometry/OdometryProvider.h>
+#include <rgbd_odometry/GPUConfig.h>
 
 #include <vector>
 #include <vector_types.h>
