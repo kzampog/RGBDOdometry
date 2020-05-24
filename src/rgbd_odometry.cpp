@@ -2,16 +2,16 @@
  * This file is part of ElasticFusion.
  *
  * Copyright (C) 2015 Imperial College London
- * 
- * The use of the code within this file and all code within files that 
- * make up the software that is ElasticFusion is permitted for 
- * non-commercial purposes only.  The full terms and conditions that 
- * apply to the code within this file are detailed within the LICENSE.txt 
- * file and at <http://www.imperial.ac.uk/dyson-robotics-lab/downloads/elastic-fusion/elastic-fusion-license/> 
- * unless explicitly stated.  By downloading this file you agree to 
+ *
+ * The use of the code within this file and all code within files that
+ * make up the software that is ElasticFusion is permitted for
+ * non-commercial purposes only.  The full terms and conditions that
+ * apply to the code within this file are detailed within the LICENSE.txt
+ * file and at <http://www.imperial.ac.uk/dyson-robotics-lab/downloads/elastic-fusion/elastic-fusion-license/>
+ * unless explicitly stated.  By downloading this file you agree to
  * comply with these terms.
  *
- * If you wish to use any of this code for commercial purposes then 
+ * If you wish to use any of this code for commercial purposes then
  * please email researchcontracts.engineering@imperial.ac.uk.
  *
  */
@@ -77,18 +77,18 @@ RGBDOdometry::RGBDOdometry(int width,
     intr.fx = fx;
     intr.fy = fy;
 
-	const int iter_norm[] = {10, 5, 4, 3, 2};
+    const int iter_norm[] = {10, 5, 4, 3, 2};
     const int iter_fast[] = {3, 5, 4, 3, 2};
 
-	iterations.resize(NUM_PYRS);
-	iterations_normal.resize(NUM_PYRS);
-	iterations_fast.resize(NUM_PYRS);
-	// ASSIGN HERE
-	for (int i = 0; i < std::min(NUM_PYRS, 5); i++)
-	{
+    iterations.resize(NUM_PYRS);
+    iterations_normal.resize(NUM_PYRS);
+    iterations_fast.resize(NUM_PYRS);
+    // ASSIGN HERE
+    for (int i = 0; i < std::min(NUM_PYRS, 5); i++)
+    {
         iterations_normal[i] = iter_norm[i];
         iterations_fast[i] = iter_fast[i];
-	}
+    }
     for (int i = std::min(NUM_PYRS, 5); i < NUM_PYRS; i++)
     {
         iterations_normal[i] = 2;
@@ -121,9 +121,9 @@ RGBDOdometry::RGBDOdometry(int width,
 
     vmaps_prev_tmp.create(height * 3 * width);
     vmaps_curr_tmp.create(height * 3 * width);
-	nmaps_tmp.create(height * 3 * width);
+    nmaps_tmp.create(height * 3 * width);
 
-	rgb_tmp.create(height * 3 * width);
+    rgb_tmp.create(height * 3 * width);
 
     minimumGradientMagnitudes.resize(NUM_PYRS);
     minimumGradientMagnitudes[0] = 5;
@@ -140,7 +140,7 @@ void RGBDOdometry::initICP(unsigned short * depth, const float depthCutoff)
 {
     curr_init_type = RGBDOdometry::DEPTH_MAP;
 
-	depth_curr_tmp[0].upload(depth, sizeof(unsigned short) * width, height, width);
+    depth_curr_tmp[0].upload(depth, sizeof(unsigned short) * width, height, width);
 
     for(int i = 1; i < NUM_PYRS; ++i)
     {
@@ -161,7 +161,7 @@ void RGBDOdometry::initICP(float * vertices, float * normals)
     curr_init_type = RGBDOdometry::VERTEX_MAP;
 
     vmaps_curr_tmp.upload(vertices, height * width * 3);
-	nmaps_tmp.upload(normals, height * width * 3);
+    nmaps_tmp.upload(normals, height * width * 3);
 
     copyMaps(vmaps_curr_tmp, nmaps_tmp, vmaps_curr_[0], nmaps_curr_[0]);
 
@@ -238,19 +238,19 @@ void RGBDOdometry::initRGBModel(unsigned char * rgb, bool bgr_order)
 {
     if (prev_init_type == RGBDOdometry::DEPTH_MAP)
     {
-		shortDepthToMetres(depth_prev_tmp[0], lastDepth[0], maxDepthRGB);
+        shortDepthToMetres(depth_prev_tmp[0], lastDepth[0], maxDepthRGB);
     }
     else if (prev_init_type == RGBDOdometry::VERTEX_MAP)
     {
         verticesToDepth(vmaps_prev_tmp, lastDepth[0], maxDepthRGB);
     }
 
-	for(int i = 0; i + 1 < NUM_PYRS; i++)
-	{
-		pyrDownGaussF(lastDepth[i], lastDepth[i + 1]);
-	}
+    for(int i = 0; i + 1 < NUM_PYRS; i++)
+    {
+        pyrDownGaussF(lastDepth[i], lastDepth[i + 1]);
+    }
 
-	rgb_tmp.upload(rgb, height * width * 3);
+    rgb_tmp.upload(rgb, height * width * 3);
 
     if (bgr_order) {
         imageBGRToIntensity(rgb_tmp, lastImage[0]);
@@ -260,19 +260,19 @@ void RGBDOdometry::initRGBModel(unsigned char * rgb, bool bgr_order)
         imageRGBToIntensity(rgb_tmp, lastImage[0]);
     }
 
-	for(int i = 0; i + 1 < NUM_PYRS; i++)
-	{
-		pyrDownUcharGauss(lastImage[i], lastImage[i + 1]);
-	}
+    for(int i = 0; i + 1 < NUM_PYRS; i++)
+    {
+        pyrDownUcharGauss(lastImage[i], lastImage[i + 1]);
+    }
 
-	cudaDeviceSynchronize();
+    cudaDeviceSynchronize();
 }
 
 void RGBDOdometry::initRGB(unsigned char * rgb, bool bgr_order)
 {
     if (curr_init_type == RGBDOdometry::DEPTH_MAP)
     {
-		shortDepthToMetres(depth_curr_tmp[0], nextDepth[0], maxDepthRGB);
+        shortDepthToMetres(depth_curr_tmp[0], nextDepth[0], maxDepthRGB);
 //		shortDepthToMetres(depth_prev_tmp[0], nextDepth[0], maxDepthRGB);
     }
     else if (curr_init_type == RGBDOdometry::VERTEX_MAP)
@@ -280,12 +280,12 @@ void RGBDOdometry::initRGB(unsigned char * rgb, bool bgr_order)
         verticesToDepth(vmaps_curr_tmp, nextDepth[0], maxDepthRGB);
     }
 
-	for(int i = 0; i + 1 < NUM_PYRS; i++)
-	{
-		pyrDownGaussF(nextDepth[i], nextDepth[i + 1]);
-	}
+    for(int i = 0; i + 1 < NUM_PYRS; i++)
+    {
+        pyrDownGaussF(nextDepth[i], nextDepth[i + 1]);
+    }
 
-	rgb_tmp.upload(rgb, height * width * 3);
+    rgb_tmp.upload(rgb, height * width * 3);
 
     if (bgr_order) {
         imageBGRToIntensity(rgb_tmp, nextImage[0]);
@@ -296,12 +296,12 @@ void RGBDOdometry::initRGB(unsigned char * rgb, bool bgr_order)
     }
 
 
-	for(int i = 0; i + 1 < NUM_PYRS; i++)
-	{
-		pyrDownUcharGauss(nextImage[i], nextImage[i + 1]);
-	}
+    for(int i = 0; i + 1 < NUM_PYRS; i++)
+    {
+        pyrDownUcharGauss(nextImage[i], nextImage[i + 1]);
+    }
 
-	cudaDeviceSynchronize();
+    cudaDeviceSynchronize();
 }
 
 //void RGBDOdometry::initFirstRGB(unsigned char * rgb)
@@ -325,14 +325,14 @@ void RGBDOdometry::getIncrementalTransformation(Eigen::Matrix4f & currPose,
                                                 const bool & fastOdom,
                                                 const bool & so3)
 {
-	iterations = fastOdom ? iterations_fast : iterations_normal;
-	if (!pyramid)
-	{
-		for (int i = 1; i < NUM_PYRS; i++)
-		{
-			iterations[i] = 0;
-		}
-	}
+    iterations = fastOdom ? iterations_fast : iterations_normal;
+    if (!pyramid)
+    {
+        for (int i = 1; i < NUM_PYRS; i++)
+        {
+            iterations[i] = 0;
+        }
+    }
 
     bool icp = !rgbOnly && icpWeight > 0;
     bool rgb = rgbOnly || icpWeight < 100;
